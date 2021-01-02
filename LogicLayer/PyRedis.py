@@ -75,4 +75,3 @@ print(hashdict)
 r.hdel("hash1", "k1")    # 删除一个键值对
 r.hincrby("hash1", 'k1', amount=1)  # 自增
 
-
