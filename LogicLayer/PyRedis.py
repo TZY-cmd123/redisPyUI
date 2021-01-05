@@ -29,7 +29,7 @@ r.flushall()  # 删除所有数据库
 
 # 普通键值对操作
 ##set key/value
-r.set(1, 2, ex=3)  # ex是过期时间
+r.set(1, 2)  # ex是过期时间
 r.set("12", "Hello")
 # get key
 print(r.get(1))
