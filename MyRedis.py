@@ -2,7 +2,7 @@ import redis
 import PySimpleGUI as sg
 
 
-class RedisOp(object): # 逻辑底层操作
+class RedisOp(object):  # 逻辑底层操作
     def __init__(self, host, port, db):
         self.host = host
         self.port = port
@@ -20,57 +20,73 @@ class RedisOp(object): # 逻辑底层操作
     def get_type_key(self, key):  # 获得键的对应的值的类型
         return str(self.r.type(key))
 
-    def get_ttl_key(self,key): # 获得过期时间
+    def get_ttl_key(self, key):  # 获得过期时间
+        if self.r.ttl(key) is None:
+            return '∞'
         return str(self.r.ttl(key))
 
-    def get_dict_key(self):
-        show_dict={}
+    def get_value_key(self, key):  # 获得对应的值
+        temp_type = self.get_type_key(key)
+        if temp_type == "string":
+            return str(self.r.get(key))
+        elif temp_type == 'set':
+            return str(self.r.smembers(key))
+        elif temp_type == 'list':
+            return str(self.r.lrange(key, 0, -1))
+        elif temp_type == 'hash':
+            return str(self.r.hgetall(key))
+
+    def get_show_key(self):
+        show_list = []
         for i in self.get_all_key():
-            show_dict[i]= "        type:"+self.get_type_key(i)+"        time to live:"+self.get_ttl_key(i)
-        return show_dict
-
-
+            temp_a = [i, self.get_type_key(i), self.get_ttl_key(i), self.get_value_key(i)]
+            show_list.append(temp_a)
+        return show_list
 
 
 class OperationUI(object):  # 登录成功进入操作界面
     def __init__(self, host, port, db):
         self.__redis_operation = RedisOp(host=host, port=port, db=db)  # 天然的单例模式
-        try:
-            self.__redis_operation.r.ping()
-        except redis.exceptions.ConnectionError:  # 链接失败
-            LoginUI(text="Error Connection")
-            return
+        self.detective_connect()
+        self.show_list = self.__redis_operation.get_show_key()
         self.operation_layout = [
             [
                 sg.Text("Host:" + host + "    Port:" + port + "    Current DB:"),
                 sg.InputCombo(values=([i for i in range(17)]), default_value=(db,), key='-SelectDB-', size=(15, 1))
             ],
+            [sg.Table(headings=['Key', 'Type', 'Time to live', 'Value'],
+                      values=self.show_list, key='-SelectKey-', size=(25, 10), def_col_width=10,
+                      auto_size_columns=False)
+             ],
             [
-                sg.Listbox(values=(self.__redis_operation.get_dict_key()), key='-SelectKey-', default_values=(0,),
-                           size=(48, 15))
-            ],
-            [sg.Button("Add", size=(15, 1)), sg.Button("Delete", size=(15, 1)),
-             sg.Button("Cancel", size=(15, 1))
-             ]]
+                sg.Button("Check", size=(10, 1)), sg.Button("Add", size=(10, 1)), sg.Button("Delete", size=(10, 1)), sg.Button("Cancel", size=(10, 1))
+            ]
+        ]
         self.window = sg.Window('MyRedis', self.operation_layout)
         self.operation()
+
+    def detective_connect(self):  # 检查链接成功与否
+        try:
+            self.__redis_operation.r.ping()
+        except redis.exceptions.ConnectionError:  # 链接失败
+            LoginUI(text="Error Connection")
+            return
 
     def operation(self):
         while True:
             event, values = self.window.read()
             if event == sg.WIN_CLOSED or event == 'Cancel':
+                break
+            if event == 'Check':
                 return
             if event == 'Add':
-                sg.popup('V1.0\nThank you for using our product')  # 弹出的内容
-                # 以上是从图形界面中读取的信息
+                return
             if event == 'Delete':
-                host = values['-Host-']
-                port = values['-Port-']
-                db = values['-DB-']
-                break
+                return
         self.window.close()
 
 
+# 登录界面,已完成
 class LoginUI(object):
     def __init__(self, text=""):  # 在构造器中构造界面
         # sg.theme_previewer()  # 展示所有可用主题
@@ -82,7 +98,7 @@ class LoginUI(object):
                               sg.InputText(default_text='6379', key='-Port-')],
                              [sg.Text("Select your DB number", size=(18, 1)),
                               sg.Listbox(values=([i for i in range(17)]), default_values=(0,), key='-DB-',
-                                         size=(15, 3))],
+                                         size=(15, 4))],
                              [sg.Button("Connect", size=(15, 1)), sg.Button("Cancel", size=(15, 1)),
                               sg.Button("About", size=(15, 1))]]
         self.window = sg.Window('MyRedis', self.login_layout)
@@ -93,9 +109,9 @@ class LoginUI(object):
             event, values = self.window.read()
             if event == sg.WIN_CLOSED or event == 'Cancel':
                 return
-            if event == 'About':
+            elif event == 'About':
                 sg.popup('V1.0\nThank you for using our product')  # 弹出的内容
-            if event == 'Connect':
+            elif event == 'Connect':
                 host = values['-Host-']
                 port = values['-Port-']
                 db = values['-DB-']
