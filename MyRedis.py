@@ -36,12 +36,19 @@ class RedisOp(object):  # 逻辑底层操作
         elif temp_type == 'hash':
             return str(self.r.hgetall(key))
 
+    def del_key(self, key):  # 根据键删除对应的键值对
+        self.r.expire(key, 0)  # 直接把过期时间设为0秒
+
     def get_show_key(self):
         show_list = []
         for i in self.get_all_key():
-            temp_a = [i, self.get_type_key(i), self.get_ttl_key(i), self.get_value_key(i)]
-            show_list.append(temp_a)
+            show_list.append([i, self.get_type_key(i), self.get_ttl_key(i), self.get_value_key(i)])
         return show_list
+
+
+class DetailUI(object):  # 新增或者检查
+    def __init__(self, redisOp, key=""):
+        self.__redis_operation = redisOp  # 天然的单例模式
 
 
 class OperationUI(object):  # 登录成功进入操作界面
@@ -59,7 +66,8 @@ class OperationUI(object):  # 登录成功进入操作界面
                       auto_size_columns=False)
              ],
             [
-                sg.Button("Check", size=(10, 1)), sg.Button("Add", size=(10, 1)), sg.Button("Delete", size=(10, 1)), sg.Button("Cancel", size=(10, 1))
+                sg.Button("Check", size=(10, 1)), sg.Button("Add", size=(10, 1)),
+                sg.Button("Delete", size=(10, 1)), sg.Button("Cancel", size=(10, 1))
             ]
         ]
         self.window = sg.Window('MyRedis', self.operation_layout)
@@ -76,14 +84,22 @@ class OperationUI(object):  # 登录成功进入操作界面
         while True:
             event, values = self.window.read()
             if event == sg.WIN_CLOSED or event == 'Cancel':
-                break
+                return
             if event == 'Check':
-                return
+                if values['-SelectKey-']:
+                    key = self.show_list[values['-SelectKey-'][0]][0]
+                    self.window.close()
+                    DetailUI(self.__redis_operation, key)
             if event == 'Add':
-                return
+                self.window.close()
+                DetailUI(self.__redis_operation)
             if event == 'Delete':
-                return
-        self.window.close()
+                if values['-SelectKey-']:
+                    key = self.show_list[values['-SelectKey-'][0]][0]
+                    self.__redis_operation.del_key(key)
+                    self.window.close()
+                    OperationUI(host=self.__redis_operation.host, port=self.__redis_operation.port,
+                                db=self.__redis_operation.db)
 
 
 # 登录界面,已完成
